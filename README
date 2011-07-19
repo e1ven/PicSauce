@@ -2,4 +2,8 @@ PicSauce was a project to set up a service where people could upload a picture, 
 And other user who uploaded the same picture, even if re-sized, re-coded, etc, would receive the same comments.
 The name, PicSauce, was a call to the 4Chan like services, where people would ask the "Sauce?" of a pic?
 
+It worked really well, and borrowed the core logic from pHash, a perceptual hash that had just come out at the time. I really don't know why I never made a bigger run with this site, it should have been awesome.
+
+These days, use TinEye ;)
+
 Licensed under Apache 2.0
