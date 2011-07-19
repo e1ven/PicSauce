@@ -1,0 +1,220 @@
+<?php
+//error_reporting(0);
+
+
+$starttime = microtime();
+$startarray = explode(" ", $starttime);
+$starttime = $startarray[1] + $startarray[0];
+
+
+$url = trim($_REQUEST["url"]);
+if (valid_url($url) != true) { exit;}
+$url = SmartUrlEncode($url);
+$fhandle = fopen($url, "r");
+//This will only look at the first 8000B of the file or so. This is better for speed, but loses accuracy.
+$contents = fread($fhandle,2541);
+fclose($fhandle);
+$hash = hash("sha256",$contents);
+$db = pg_pconnect("dbname=img user=slage host=localhost password=pur6Cr3j");
+#echo $hash;
+echo "
+<html><head><script type=\"text/javascript\">
+function addComment()
+{
+	var xmlHttp;
+	try
+	{
+		xmlHttp=new XMLHttpRequest();
+	}
+	catch (e)
+	{
+		try
+		{
+			xmlHttp=new ActiveXObject(\"Msxml2.XMLHTTP\");
+		}
+		catch (e)
+		{
+			try
+			{
+				xmlHttp=new ActiveXObject(\"Microsoft.XMLHTTP\");
+			}
+			catch (e)
+			{
+				return false;
+			}
+		}
+	}
+	xmlHttp.onreadystatechange=function()
+	{
+      		if(xmlHttp.readyState==4)
+		{
+			document.getElementById(\"LeaveComment\").innerHTML=xmlHttp.responseText;
+		}
+      	}	
+	var url=\"submitcomment.php?comment=\";
+	url += document.commentform.comment.value;
+	url += \"&hash=\";
+	url += document.commentform.hash.value;
+	xmlHttp.open(\"GET\",url,true);
+	xmlHttp.send(null);
+}
+
+
+
+function voteComment(direction,commentid)
+{
+	var xmlHttp;
+	try
+	{
+		xmlHttp=new XMLHttpRequest();
+	}
+	catch (e)
+	{
+		try
+		{
+			xmlHttp=new ActiveXObject(\"Msxml2.XMLHTTP\");
+		}
+		catch (e)
+		{
+			try
+			{
+				xmlHttp=new ActiveXObject(\"Microsoft.XMLHTTP\");
+			}
+			catch (e)
+			{
+				return false;
+			}
+		}
+	}
+	xmlHttp.onreadystatechange=function()
+	{
+      		if(xmlHttp.readyState==4)
+		{
+			document.getElementById(\"voteup\" + commentid ).style.visibility=\"hidden\";
+			document.getElementById(\"voteup\" + commentid ).innerHTML=\"\";
+			document.getElementById(\"votedown\" + commentid ).style.visibility=\"hidden\";
+			document.getElementById(\"votedown\" + commentid ).innerHTML=\"\";
+		}		
+      	}
+	var url=\"votecomment.php?commentid=\";
+	url += commentid;
+	url += \"&direction=\";
+	url += direction;
+	xmlHttp.open(\"GET\",url,true);
+	xmlHttp.send(null);
+}
+
+</script>
+</head>
+<body>
+
+<div style=\"position: absolute;z-index:10; display:block;position:absolute;    top:0;    left:0;    width:100%;    height:100%;        
+height: expression(document.body.clientHeight + 'px');
+width: expression(document.body.clientWidth + 'px');
+background: url('logo.png');
+background-repeat: no-repeat;\">
+</div>
+
+<div style=\"position: absolute;z-index:1; display:block;position:fixed;    top:0;    left:0;    width:100%;     height:100%;        background: url('bgcolor.png');
+height: expression(document.body.clientHeight + 'px');
+width: expression(document.body.clientWidth + 'px');
+\">
+</div>
+
+<div class=\"search\" style=\"position:absolute;z-index:100;left:100px; top:200px;\">
+
+";
+
+
+
+
+
+
+
+$result = pg_query_params($db, "select fileid,count from img where (hashtype = 'sha256' and hashvalue = $1);",array($hash));
+$resultarray = pg_fetch_array($result);
+$fileid = $resultarray[fileid];  //Fileid is the id in the database for this url
+$count = $resultarray[count];
+
+if ($fileid == "" ) {
+// Never Seen it
+        $result = pg_query_params($db, "insert into img (hashtype,hashvalue,srcurl) values ('sha256',$1,$2);",array($hash,$url));
+ 	echo ("Status: Brand Spanken New.  ");	
+$fhandle2 = fopen("/tmp/" . $hash,w);
+fwrite($fhandle2,$contents);
+fclose($fhandle2);
+
+
+}
+else
+{
+	echo ("Status: Previously entered. ");
+}
+	// We've seen this picture Before
+	echo (" ::: We've seen this picture before " . $count . " times.  <br> ");
+	echo ("<img src=\"" . $url . "\"><br>");
+	$result = pg_query_params($db, "select comment,date,commentid from comments where (fileid = $1) order by (votesdown - votesup) ;",array($fileid));
+	$resultarray = pg_fetch_array($result);
+	
+	if ($resultarray == "")
+	{
+	echo "There are no comments posted for this image file yet. Post the first!";
+	}
+	else
+	{
+	for ($i=0;$i<pg_num_rows($result);$i += 1)
+		{
+			$commentid= pg_fetch_result($result,$i,commentid);
+			echo "<hr>";
+			echo "<table width = 80%><tr><td width = 80%><strong>Comment left at " .  pg_fetch_result($result,$i,date) . ".</strong></td><td id=\"voteup" . $commentid . "\"><a href=\"javascript:voteComment('up','" .  $commentid . "')\">Vote Up.</a></td><td id=\"votedown" . $commentid ."\" ><a href=\"javascript:voteComment('down','" . $commentid . "')\">Vote Down.</a></td></tr>";
+			echo "<tr><td><pre>" . wordwrap(pg_fetch_result($result,$i,comment),90,"<br />\n") . "</pre></td></tr></table>";
+		}
+	}
+	echo "<hr>";
+	echo "<div id=\"LeaveComment\">Add your own comments below: ";
+	echo "<form name=\"commentform\">";
+	echo "<textarea name=\"comment\" cols=50 rows=10 style=\"background-color: #ABABAB\"></textarea><br>";
+	echo "<input type=\"button\" value=\"Leave Comment\" name=\"Submit\" onClick=\"javascript:addComment();\">";
+	echo "<input type=\"hidden\" name=\"hash\" value=\"" . $hash. "\" >";
+	echo "</form>";
+	echo "</div>";
+
+
+$result = pg_query_params($db, "insert into seen(fileid,url,ip,useragent) values ($1,$2,$3,$4);",array($fileid,$url,$_SERVER['REMOTE_ADDR'],$_SERVER['HTTP_USER_AGENT']));
+$result = pg_query_params($db, "update img set count = $1 where fileid = $2;",array(($count + 1),$fileid));
+#$server = pg_fetch_array($gameserver);
+#$serverid = $server[0];
+
+$endtime = microtime();
+$endarray = explode(" ", $endtime);
+$endtime = $endarray[1] + $endarray[0];
+$totaltime = $endtime - $starttime;
+$totaltime = round($totaltime,5);
+echo "This page loaded in $totaltime seconds.";
+
+function valid_url($str)
+{
+return ( ! preg_match('/^(http|https|ftp):\/\/([A-Z0-9][A-Z0-9_-]*(?:\.[A-Z0-9][A-Z0-9_-]*)+):?(\d+)?\/?/i', $str)) ? FALSE : TRUE;
+}
+
+function reply($str)
+{
+echo "<html><body>" . $str . "</body></html>";
+}
+
+function display_comments($comment)
+{
+}
+
+function SmartUrlEncode($url){
+// URL Encode ONLY the parts after the HTTP
+$url=str_replace("://","str-colon-slash-slash-imagefun",$url);
+$url=str_replace("/","string-slash-imagefun",$url);
+$url=str_replace("?","question-mark-imagefun",$url);
+$url=rawurlencode($url);
+$url=str_replace("question-mark-imagefun","?",$url);
+$url=str_replace("string-slash-imagefun","/",$url);
+$url=str_replace("str-colon-slash-slash-imagefun","://",$url);
+return $url;
+}
+?>

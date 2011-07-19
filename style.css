@@ -1,0 +1,40 @@
+
+#contentheaderleft {
+    background-color: #33FF33;
+    left:10px;
+    top:0px;
+    height: 76px;
+    width: 20px;
+    position: relative;
+    float: left;
+}
+
+#content
+{
+    float: left;
+    width: 100%;
+    bottom: 0px;
+    position: absolute;
+    top: 100px;
+    clip:               rect(auto auto auto auto);
+    right: 0px;
+    margin-bottom: 133px;
+}
+
+#contentheader {
+    height: 76px;
+    width: 100%;
+    background-color: #555555;
+}
+
+#contentfooter {
+    background-color: #993300;
+    height: 65px;
+    width: 100%;
+    position: absolute;
+    left: 0px;
+    bottom: 0px;
+    clip:    rect(auto auto auto auto);
+    right: 250px;
+}
+
